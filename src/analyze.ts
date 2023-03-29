@@ -2,6 +2,7 @@ import { flattenDeep, omit, sortBy } from 'lodash';
 import {
   App,
   ArgumentOption,
+  CommonMiddleware,
   Decorator,
   Entities,
   isMiddleware,
@@ -17,11 +18,11 @@ type Endpoint = (path: string, ...args: Arg[]) => void;
 
 const noop = () => { };
 const getPermissions = (middlewares: Arg[]) =>
-  middlewares
+  flattenDeep(middlewares
     .filter(isMiddleware)
-    .filter(isPermissionMiddleware)
-    .filter(m => !!m.$permission)
-    .map(m => m.$permission);
+    .filter(isPermissionMiddleware))
+    .filter(p => !!p.$permission)
+    .map(p => p.$permission)
 
 const isString = (a: Arg): a is string => typeof a === 'string';
 const isNumber = (a: Arg): a is number => typeof a === 'number';
