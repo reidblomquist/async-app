@@ -39,6 +39,7 @@ export type AsyncMiddleware<TEntities extends Entities> = (
 export type Middleware<TEntities extends Entities> =
   | CommonMiddleware<TEntities>
   | AsyncMiddleware<TEntities>
+  | [CommonMiddleware<TEntities>]
   ;
 
 export type ProviderMiddleware<TEntities extends Entities> =
@@ -51,27 +52,27 @@ export type RequireMiddleware<TEntities extends Entities> =
   Middleware<TEntities> & { $requires: string[] };
 
 export type PermissionMiddleware<TEntities extends Entities> =
-  Middleware<TEntities> & { $permission: string };
+  CommonMiddleware<TEntities> & { $permission: string } | [CommonMiddleware<TEntities> & { $permission: string }];
 
 export const isProviderMiddleware = <TEntities extends Entities>(
   o: Middleware<TEntities>,
 ): o is ProviderMiddleware<TEntities> =>
-  !!(o.$provides && o.$provides.length);
+  Array.isArray(o) ? false : !!(o.$provides && o.$provides.length);
 
 export const isRequirMiddleware = <TEntities extends Entities>(
   o: Middleware<TEntities>,
 ): o is RequireMiddleware<TEntities> =>
-  !!(o.$requires && o.$requires.length);
+  Array.isArray(o) ? false : !!(o.$requires && o.$requires.length);
 
 export const isPermissionMiddleware = <TEntities extends Entities>(
   o: Middleware<TEntities>,
 ): o is PermissionMiddleware<TEntities> =>
-  !!o.$permission;
+  !Array.isArray(o) ? !!o.$permission : o.every((v) => !!v.$permission);
 
 export const isNonOrderable = <TEntities extends Entities>(
   o: Middleware<TEntities>,
 ): o is NonOrderableMiddleware<TEntities> =>
-  !!o.$noOrder;
+  !Array.isArray(o) ? !!o.$noOrder : o.some((v) => !!v.$noOrder);
 
 // === Schema =============================================================== //
 export type RequestScope = 'body' | 'query';
