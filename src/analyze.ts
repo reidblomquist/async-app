@@ -2,6 +2,7 @@ import { flattenDeep, omit, sortBy } from 'lodash';
 import {
   App,
   ArgumentOption,
+  AsyncMiddleware,
   CommonMiddleware,
   Decorator,
   Entities,
@@ -18,11 +19,11 @@ type Endpoint = (path: string, ...args: Arg[]) => void;
 
 const noop = () => { };
 const getPermissions = (middlewares: Arg[]) =>
-  flattenDeep(middlewares
+  (flattenDeep(middlewares
     .filter(isMiddleware)
-    .filter(isPermissionMiddleware))
+    .filter(isPermissionMiddleware)) as CommonMiddleware<Entities>[])
     .filter(p => !!p.$permission)
-    .map(p => p.$permission)
+    .map(p => p.$permission) as string[];
 
 const isString = (a: Arg): a is string => typeof a === 'string';
 const isNumber = (a: Arg): a is number => typeof a === 'number';
@@ -69,7 +70,9 @@ class MetadataApp<TSchema> {
       const other = flattenDeep(args).filter(a => !!a);
       const schema = other.find(isSchema());
       const successStatus = other.find(isNumber) || 200;
-      const middlewares = other.filter(isMiddleware);
+      const middlewares = flattenDeep(
+        other.filter(isMiddleware),
+      ) as [CommonMiddleware<Entities> | AsyncMiddleware<Entities>];
       const deprecated = middlewares.find(m => !!m.$deprecated);
       const permissions = this.permissions.concat(getPermissions(middlewares));
 

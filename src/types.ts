@@ -36,6 +36,11 @@ export type AsyncMiddleware<TEntities extends Entities> = (
   (req: Req<TEntities, keyof TEntities>) => Promise<unknown> | unknown
 ) & Decorator;
 
+export type FlatMiddleware<TEntities extends Entities> =
+  | CommonMiddleware<TEntities>
+  | AsyncMiddleware<TEntities>
+  ;
+
 export type Middleware<TEntities extends Entities> =
   | CommonMiddleware<TEntities>
   | AsyncMiddleware<TEntities>
@@ -52,7 +57,8 @@ export type RequireMiddleware<TEntities extends Entities> =
   Middleware<TEntities> & { $requires: string[] };
 
 export type PermissionMiddleware<TEntities extends Entities> =
-  CommonMiddleware<TEntities> & { $permission: string } | [CommonMiddleware<TEntities> & { $permission: string }];
+  CommonMiddleware<TEntities> & { $permission: string }
+  | [CommonMiddleware<TEntities> & { $permission: string }];
 
 export const isProviderMiddleware = <TEntities extends Entities>(
   o: Middleware<TEntities>,
@@ -67,12 +73,12 @@ export const isRequirMiddleware = <TEntities extends Entities>(
 export const isPermissionMiddleware = <TEntities extends Entities>(
   o: Middleware<TEntities>,
 ): o is PermissionMiddleware<TEntities> =>
-  !Array.isArray(o) ? !!o.$permission : o.every((v) => !!v.$permission);
+  !Array.isArray(o) ? !!o.$permission : o.every(v => !!v.$permission);
 
 export const isNonOrderable = <TEntities extends Entities>(
   o: Middleware<TEntities>,
 ): o is NonOrderableMiddleware<TEntities> =>
-  !Array.isArray(o) ? !!o.$noOrder : o.some((v) => !!v.$noOrder);
+  !Array.isArray(o) ? !!o.$noOrder : o.some(v => !!v.$noOrder);
 
 // === Schema =============================================================== //
 export type RequestScope = 'body' | 'query';
@@ -143,7 +149,9 @@ export const isAsyncMiddleware = <TEntities extends Entities>(
 export const isMiddleware = <TEntities extends Entities>(
   o: ArgumentOption<TEntities, unknown>,
 ): o is Middleware<TEntities> =>
-  typeof o === 'function';
+  typeof o === 'function'
+  || Array.isArray(o)
+  && o.every(co => typeof co === 'function');
 
 // === Converters, App and options ========================================== //
 export type Converter<TEntities extends Entities, TSchema> = (

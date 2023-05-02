@@ -7,13 +7,13 @@ import {
   Decorator,
   Entities,
   ErrorHandlerFn,
+  FlatMiddleware,
   isAsyncMiddleware,
   isMiddleware,
   isNumber,
   isPromise,
   isSchema,
   MapAsyncResultFn,
-  Middleware,
   ValidateSchema,
 } from './types';
 
@@ -44,7 +44,7 @@ const copyDecorators = <TSrc extends Decorator, TDest extends Decorator>(
 };
 
 const mapMiddleware = <TEntities extends Entities>(
-  middleware: Middleware<TEntities>,
+  middleware: FlatMiddleware<TEntities>,
   options: Options<TEntities>,
   errorHandler?: ErrorHandlerFn<TEntities>,
 ): CommonMiddleware<TEntities> => {
@@ -165,20 +165,45 @@ export default <TEntities extends Entities, TSchema>({
     const lastMiddleware = middlewares[middlewares.length - 1];
 
     // 4 argument middlewares are error handlers, and we leave them untouched
-    return args.map(m =>
-      isMiddleware(m) && m.length < 4
-        ? mapMiddleware(
-          m,
-          // Check if this is the last valid middleware (not the statusCode arg)
-          {
-            isLastMiddleware: m === lastMiddleware,
-            mapAsyncResultFn,
-            statusCode,
-            validateSchema,
-          },
-          // Passes a custom error handler
-          errorHandler,
-        )
-        : m,
-    );
+    // single functions should map
+    // composed permission functions should map
+    return args.reduce((acc, m) => {
+      if (isMiddleware(m)) {
+        if (typeof m === 'function') {
+          if (m.length === 4) {
+            return [...acc, m];
+          }
+          return [
+            ...acc,
+            mapMiddleware(
+              m,
+              {
+                isLastMiddleware: m === lastMiddleware,
+                mapAsyncResultFn,
+                statusCode,
+                validateSchema,
+              },
+              // Passes a custom error handler
+              errorHandler,
+              ),
+          ];
+        }
+        return [
+          ...acc,
+          ...((m as CommonMiddleware<TEntities>[])
+            .map(cm => mapMiddleware(
+              cm,
+              {
+                isLastMiddleware: m === lastMiddleware,
+                mapAsyncResultFn,
+                statusCode,
+                validateSchema,
+              },
+              // Passes a custom error handler
+              errorHandler,
+              ),
+            ))];
+      }
+      return acc;
+    },                 [] as any[]);
   };
