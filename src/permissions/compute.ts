@@ -18,8 +18,12 @@ interface Reasons {
   [name: string]: string;
 }
 
+interface RemediationOptions {
+  [name: string]: string;
+}
+
 interface PermissionsWithReasons {
-  [name: string]: boolean | Reasons;
+  [name: string]: boolean | Reasons | RemediationOptions;
 }
 
 const areEqual = <T>(arr1: T[], arr2: T[]) =>
@@ -65,7 +69,13 @@ const tryPermission = <TEntities>(
   try {
     return { access: permissionFn(requiredModels) };
   } catch (error) {
-    return { access: false, reason: error instanceof CustomError ? error.error : 'UNKNOWN_ERROR' };
+    let reason = 'UNKNOWN_ERROR';
+    let remediationOption = '';
+    if (error instanceof CustomError) {
+      reason = error.error || 'UNKNOWN_ERROR';
+      remediationOption = error.extra && error.extra.remediationOptions ? error.extra.remediationOptions : '';
+    }
+    return { access: false, reason, remediationOption};
   }
 };
 
@@ -89,16 +99,20 @@ export const computePermissions = <TEntities>(
 
   const permissions = {} as Permissions;
   const reasons = {} as Reasons;
+  const remediationOptions = {} as RemediationOptions;
 
   Object.keys(entity).forEach((action) => {
     const spec = entity[action];
 
     // load permission on entire entity, e.g.: $permissions.delete = true
     if (isPermissionFn(spec)) {
-      const { access , reason } = tryPermission(spec, requiredModels);
+      const { access , reason, remediationOption } = tryPermission(spec, requiredModels);
       permissions[action] = access;
       if (reason) {
         reasons[action] = reason;
+      }
+      if (remediationOption) {
+        remediationOptions[action] = remediationOption;
       }
     }
 
@@ -107,16 +121,19 @@ export const computePermissions = <TEntities>(
       Object.keys(spec).forEach((subaction) => {
         const permissionFn = spec[subaction];
         if (isPermissionFn(permissionFn)) {
-          const { access, reason } = tryPermission(permissionFn, requiredModels);
+          const { access, reason, remediationOption } = tryPermission(permissionFn, requiredModels);
 
           permissions[`${action}.${subaction}`] = access;
           if (reason) {
             reasons[`${action}.${subaction}`] = reason;
+          }
+          if (remediationOption) {
+            remediationOptions[`${action}.${subaction}`] = remediationOption;
           }
         }
       });
     }
   });
 
-  return provideReasons ? {...permissions, '$reasons': reasons } : permissions;
+  return provideReasons ? {...permissions, '$reasons': reasons, '$remediationOptions': remediationOptions } : permissions;
 };
